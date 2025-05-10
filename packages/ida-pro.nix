@@ -2,6 +2,8 @@
   pkgs,
   lib,
   runfile,
+  libida,
+  libida32,
   ...
 }:
 let
@@ -12,6 +14,10 @@ pkgs.stdenv.mkDerivation rec {
   version = "9.1.0.250226";
 
   src = runfile;
+  extraFiles = [
+    libida
+    libida32
+  ];
 
   desktopItem = pkgs.makeDesktopItem {
     name = "ida-pro";
@@ -103,6 +109,10 @@ pkgs.stdenv.mkDerivation rec {
     for lib in $IDADIR/libida*; do
       ln -s $lib $out/lib/$(basename $lib)
     done
+
+
+    cp $extraFiles/libida.so $out/lib/libida.so
+    cp $extraFiles/libida32.so $out/lib/libida32.so
 
     # Manually patch libraries that dlopen stuff.
     patchelf --add-needed libpython3.12.so $out/lib/libida.so
