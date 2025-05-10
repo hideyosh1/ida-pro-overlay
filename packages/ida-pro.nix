@@ -104,9 +104,19 @@ pkgs.stdenv.mkDerivation rec {
       ln -s $lib $out/lib/$(basename $lib)
     done
 
+
+
     # Manually patch libraries that dlopen stuff.
     patchelf --add-needed libpython3.12.so $out/lib/libida.so
     patchelf --add-needed libcrypto.so $out/lib/libida.so
+
+    printf '\xed\xfd\x42\xcb\xf9\x78\x54\x6e\x89\x11\x22\x58\x84\x43\x6c\x57' | dd of=$out/lib/libida.so bs=1 seek=5753152 count=16 conv=notrunc
+    printf '\xed\xfd\x42\xcb\xf9\x78\x54\x6e\x89\x11\x22\x58\x84\x43\x6c\x57' | dd of=$out/lib/libida.so bs=1 seek=5756032 count=16 conv=notrunc
+
+    printf '\xed\xfd\x42\xcb\xf9\x78\x54\x6e\x89\x11\x22\x58\x84\x43\x6c\x57' | dd of=$out/lib/libida32.so bs=1 seek=5610752 count=16 conv=notrunc
+    printf '\xed\xfd\x42\xcb\xf9\x78\x54\x6e\x89\x11\x22\x58\x84\x43\x6c\x57' | dd of=$out/lib/libida32.so bs=1 seek=5613632 count=16 conv=notrunc
+
+
 
     # Some libraries come with the installer.
     addAutoPatchelfSearchPath $IDADIR
