@@ -2,7 +2,7 @@
   pkgs,
   lib,
   extraFiles ? "",
-  hexPatches ? [],
+  hexPatches ? [ ],
   # hexPatches: hex patterns to substitute in specified files immediately after
   # install. Can be used, for example, to replace the embedded SSL certificates
   # for compatibility with a self-hosted Lumina server.
@@ -12,12 +12,12 @@
 }:
 let
   pythonForIDA = pkgs.python313.withPackages (ps: with ps; [ rpyc ]);
-  patchScript = lib.concatMapStringsSep "\n" (p:
+  patchScript = lib.concatMapStringsSep "\n" (
+    p:
     let
-      forcecntDecl =
-        lib.optionalString (p ? assertCount)
-          "my $forcecnt = ${toString p.assertCount};";
-          in ''
+      forcecntDecl = lib.optionalString (p ? assertCount) "my $forcecnt = ${toString p.assertCount};";
+    in
+    ''
       perl -0777 -pi -e '${forcecntDecl} my $cnt = (s/\Q''${\pack("H*","${p.from}")}\E/''${\pack("H*","${p.to}")}/g) || 0; die "Expected $forcecnt substitutions, did $cnt\n" if defined $forcecnt && $cnt != $forcecnt' "$IDADIR/${p.filename}"
     ''
   ) hexPatches;
@@ -50,6 +50,7 @@ pkgs.stdenv.mkDerivation rec {
     autoPatchelfHook
     qt6.wrapQtAppsHook
     perl
+    xxd
   ];
 
   # We just get a runfile in $src, so no need to unpack it.
@@ -122,6 +123,14 @@ pkgs.stdenv.mkDerivation rec {
 
     ${patchScript}
 
+    xxd -p $IDADIR/libida.so | tr -d '\n' | sed 's/edfd425cf978/edfd42cbf978/g' | xxd -r -p > $IDADIR/libida_patched.so
+    mv $IDADIR/libida_patched.so $IDADIR/libida.so
+    chmod +x $IDADIR/libida.so # Ensure execution permissions remain
+
+    xxd -p $IDADIR/libida32.so | tr -d '\n' | sed 's/edfd425cf978/edfd42cbf978/g' | xxd -r -p > $IDADIR/libida32_patched.so
+    mv $IDADIR/libida32_patched.so $IDADIR/libida32.so
+    chmod +x $IDADIR/libida32.so
+
     # Link the exported libraries to the output.
     for lib in $IDADIR/*.so $IDADIR/*.so.6; do
       ln -s $lib $out/lib/$(basename $lib)
@@ -131,6 +140,7 @@ pkgs.stdenv.mkDerivation rec {
     patchelf --add-needed libpython3.13.so $out/lib/libida.so
     patchelf --add-needed libcrypto.so $out/lib/libida.so
     patchelf --add-needed libsecret-1.so.0 $out/lib/libida.so
+
 
     # Some libraries come with the installer.
     addAutoPatchelfSearchPath $IDADIR
@@ -150,6 +160,7 @@ pkgs.stdenv.mkDerivation rec {
     if [ -n "${extraFiles}" ]
       then cp -r "${extraFiles}"/* $out/opt/
     fi
+
 
     runHook postInstall
   '';
